@@ -1,0 +1,88 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-50: #fff1f4;
+  --color-brand-100: #ffe0e7;
+  --color-brand-200: #ffc2d0;
+  --color-brand-300: #ff93ab;
+  --color-brand-400: #ff6b81;
+  --color-brand-500: #f43f64;
+  --color-brand-600: #e11d50;
+  --color-brand-700: #be1243;
+  --color-night-900: #120a2e;
+  --color-night-800: #1f1147;
+  --color-night-700: #2e1a66;
+  --color-gold-300: #ffe08a;
+  --color-gold-400: #ffd43b;
+  --color-gold-500: #fab005;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+}
+
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  @apply bg-slate-50 text-slate-900 antialiased;
+}
+
+.bg-festive {
+  background:
+    radial-gradient(1200px 600px at 10% -10%, rgba(255, 107, 129, 0.45), transparent 60%),
+    radial-gradient(900px 500px at 110% 10%, rgba(151, 117, 250, 0.45), transparent 60%),
+    radial-gradient(800px 600px at 50% 120%, rgba(255, 212, 59, 0.25), transparent 60%),
+    linear-gradient(160deg, #1f1147 0%, #2e1a66 45%, #120a2e 100%);
+}
+
+.glass {
+  @apply border border-white/15 bg-white/10 backdrop-blur-md;
+}
+
+.btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition
+    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+}
+.btn-primary {
+  @apply bg-brand-500 text-white shadow-sm hover:bg-brand-600 focus-visible:ring-brand-400;
+}
+.btn-secondary {
+  @apply border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 focus-visible:ring-slate-300;
+}
+.btn-danger {
+  @apply bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-400;
+}
+.btn-ghost {
+  @apply text-slate-600 hover:bg-slate-100 focus-visible:ring-slate-300;
+}
+
+.input {
+  @apply w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm outline-none
+    transition placeholder:text-slate-400 focus:border-brand-400 focus:ring-2 focus:ring-brand-100 disabled:bg-slate-100;
+}
+.label {
+  @apply mb-1 block text-sm font-medium text-slate-700;
+}
+.card {
+  @apply rounded-2xl border border-slate-200 bg-white shadow-sm;
+}
+
+@keyframes shine {
+  0% { transform: translateX(-120%) skewX(-20deg); }
+  100% { transform: translateX(220%) skewX(-20deg); }
+}
+.btn-shine {
+  position: relative;
+  overflow: hidden;
+}
+.btn-shine::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+  animation: shine 2.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-shine::after { animation: none; }
+}

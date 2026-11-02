@@ -1,0 +1,12 @@
+node_modules
+.next
+out
+*.tsbuildinfo
+.env
+.env.local
+.env*.local
+# runtime data (demo seed lives in data/seed)
+data/*.json
+data/uploads/
+backups/
+coverage

@@ -1,0 +1,19 @@
+{
+  "brandName": "Thevi Spinner",
+  "tagline": "Spin. Win. Smile.",
+  "logoUrl": null,
+  "welcomeTitle": "Welcome to Our Lucky Spin!",
+  "welcomeMessage": "Join our WhatsApp announcement group and get a chance to win exclusive offers!",
+  "ctaLabel": "TRY YOUR LUCK",
+  "publicUrl": "http://localhost:3000",
+  "whatsappGroupUrl": "",
+  "rules": [
+    "One spin per mobile number for each Lucky Spin campaign.",
+    "Only the first 10 participants can spin.",
+    "Winning results are generated securely and cannot be changed.",
+    "Show your Result ID to redeem your offer within 7 days."
+  ],
+  "comingSoonMessage": "Stay tuned! A new lucky spin is coming soon.",
+  "defaultMaxParticipants": 10,
+  "updatedAt": "2026-11-02T14:17:43.070Z"
+}
