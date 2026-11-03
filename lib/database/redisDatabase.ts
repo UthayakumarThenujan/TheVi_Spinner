@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { Redis } from "@upstash/redis";
+import { createClient } from "redis";
 import { logger } from "@/lib/utils/logger";
 import { COLLECTION_DEFAULTS, type CollectionName, type Store } from "./jsonDatabase";
 
@@ -14,32 +15,71 @@ import { COLLECTION_DEFAULTS, type CollectionName, type Store } from "./jsonData
  * can never land after the lock has expired and been taken by someone else.
  */
 
-export function redisUrl() {
+/* ------------------------------------------------------------------ */
+/* Connection: Upstash REST (KV_REST_API_*) or plain redis:// (REDIS_URL) */
+/* ------------------------------------------------------------------ */
+
+function restUrl() {
   return process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
 }
-function redisToken() {
+function restToken() {
   return process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
 }
+function tcpUrl() {
+  return process.env.REDIS_URL || process.env.KV_URL;
+}
 export function redisConfigured(): boolean {
-  return Boolean(redisUrl() && redisToken());
+  return Boolean((restUrl() && restToken()) || tcpUrl());
+}
+
+/** The few commands this module needs, over either client. */
+interface KV {
+  get(key: string): Promise<string | null>;
+  /** SET key value NX PX ttl — true when the key was set. */
+  setNxPx(key: string, value: string, ttlMs: number): Promise<boolean>;
+  eval(script: string, keys: string[], args: string[]): Promise<unknown>;
+}
+
+function upstashKV(): KV {
+  const r = new Redis({ url: restUrl()!, token: restToken()!, automaticDeserialization: false });
+  return {
+    get: (k) => r.get<string>(k),
+    setNxPx: async (k, v, ms) => (await r.set(k, v, { nx: true, px: ms })) === "OK",
+    eval: (s, keys, args) => r.eval(s, keys, args),
+  };
+}
+
+function tcpKV(): KV {
+  const client = createClient({ url: tcpUrl()! });
+  client.on("error", (err) => logger.error("db.redis_error", { error: String(err) }));
+  let ready: Promise<unknown> | null = null;
+  const conn = async () => {
+    if (!client.isOpen) ready ??= client.connect().catch((err) => ((ready = null), Promise.reject(err)));
+    await ready;
+    return client;
+  };
+  return {
+    get: async (k) => (await (await conn()).get(k)) as string | null,
+    setNxPx: async (k, v, ms) =>
+      (await (await conn()).set(k, v, { condition: "NX", expiration: { type: "PX", value: ms } })) === "OK",
+    eval: async (s, keys, args) => (await conn()).eval(s, { keys, arguments: args }),
+  };
 }
 
 const PREFIX = () => process.env.REDIS_PREFIX || "tvs:";
 const keyFor = (name: CollectionName) => `${PREFIX()}${name}`;
 const lockKey = () => `${PREFIX()}lock`;
 
-type GlobalWithRedis = typeof globalThis & { __tvsRedis?: Redis; __tvsRedisQueue?: Promise<unknown> };
+type GlobalWithRedis = typeof globalThis & { __tvsKV?: KV; __tvsRedisQueue?: Promise<unknown> };
 const g = globalThis as GlobalWithRedis;
 
-function redis(): Redis {
-  if (!g.__tvsRedis) {
-    g.__tvsRedis = new Redis({ url: redisUrl()!, token: redisToken()!, automaticDeserialization: false });
-  }
-  return g.__tvsRedis;
+function redis(): KV {
+  g.__tvsKV ??= restUrl() && restToken() ? upstashKV() : tcpKV();
+  return g.__tvsKV;
 }
 
 async function readRaw<T>(name: CollectionName): Promise<T> {
-  const text = await redis().get<string>(keyFor(name));
+  const text = await redis().get(keyFor(name));
   if (text == null) return structuredClone(COLLECTION_DEFAULTS[name]) as T;
   try {
     return JSON.parse(text) as T;
@@ -73,8 +113,7 @@ async function acquireLock(): Promise<string> {
   const token = crypto.randomUUID();
   const deadline = Date.now() + 10_000;
   for (;;) {
-    const ok = await redis().set(lockKey(), token, { nx: true, px: LOCK_TTL_MS });
-    if (ok === "OK") return token;
+    if (await redis().setNxPx(lockKey(), token, LOCK_TTL_MS)) return token;
     if (Date.now() > deadline) throw new Error("Timed out waiting for database lock");
     await sleep(25 + Math.random() * 50);
   }

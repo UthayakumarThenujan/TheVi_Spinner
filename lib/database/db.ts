@@ -4,15 +4,15 @@ import type { Store } from "./jsonDatabase";
 
 /**
  * Picks the storage backend at runtime:
- *  - Upstash Redis when UPSTASH_REDIS_REST_URL/TOKEN (or Vercel's KV_REST_API_URL/TOKEN) are set;
+ *  - Redis when REDIS_URL (redis://) or Upstash REST vars (KV_REST_API_URL/TOKEN) are set;
  *  - otherwise the local JSON files in DATA_DIR (local dev, tests, servers with a persistent disk).
  */
 function backend() {
   if (redisDb.redisConfigured()) return redisDb.db;
   if (process.env.VERCEL) {
     throw new Error(
-      "No database configured. On Vercel, connect an Upstash Redis store (Storage tab) so " +
-        "KV_REST_API_URL and KV_REST_API_TOKEN are set, then redeploy.",
+      "No database configured. On Vercel, connect a Redis store (Storage tab) so REDIS_URL " +
+        "(or KV_REST_API_URL + KV_REST_API_TOKEN) is set, then redeploy.",
     );
   }
   return fileDb.db;
