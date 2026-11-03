@@ -1,5 +1,5 @@
 import type { Store, CollectionName } from "./jsonDatabase";
-import { db } from "./jsonDatabase";
+import { db } from "./db";
 import { UniqueConstraintError, notFound } from "@/lib/utils/errors";
 import type { Spinner } from "@/types/spinner";
 import type { Offer } from "@/types/offer";

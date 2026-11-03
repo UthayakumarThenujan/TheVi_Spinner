@@ -1,6 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
+import { put, head, BlobNotFoundError } from "@vercel/blob";
 import { getDataDir } from "@/lib/database/jsonDatabase";
 import { badRequest } from "@/lib/utils/errors";
 import { logger } from "@/lib/utils/logger";
@@ -8,8 +9,14 @@ import { logger } from "@/lib/utils/logger";
 /**
  * Uploads are stored under DATA_DIR/uploads (NOT /public — files added to /public after
  * `next build` are not served in production) and streamed by app/uploads/[file]/route.ts.
+ * When BLOB_READ_WRITE_TOKEN is set (Vercel Blob connected), files go to Vercel Blob
+ * instead; the public URL stays `/uploads/<name>` and the route redirects to the blob.
  * SVG is intentionally not accepted (script injection risk).
  */
+export function blobConfigured(): boolean {
+  return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+}
+const blobPath = (name: string) => `uploads/${name}`;
 const IMAGE_MAX = 2 * 1024 * 1024;
 const AUDIO_MAX = 5 * 1024 * 1024;
 
@@ -53,15 +60,32 @@ export async function saveUpload(file: File, expected: "image" | "audio"): Promi
   if (buf.length === 0 || !spec.magic(buf)) throw badRequest("File content does not match its type");
 
   const name = `${expected}-${Date.now().toString(36)}-${crypto.randomBytes(6).toString("hex")}.${spec.ext}`;
-  await fs.mkdir(uploadsDir(), { recursive: true });
-  await fs.writeFile(path.join(uploadsDir(), name), buf);
+  if (blobConfigured()) {
+    await put(blobPath(name), buf, { access: "public", contentType: file.type, addRandomSuffix: false });
+  } else {
+    await fs.mkdir(uploadsDir(), { recursive: true });
+    await fs.writeFile(path.join(uploadsDir(), name), buf);
+  }
   logger.info("upload.saved", { name, size: buf.length });
   return { url: `/uploads/${name}`, size: buf.length, type: file.type };
 }
 
+const UPLOAD_NAME = /^[A-Za-z0-9_\-]+\.(png|jpe?g|webp|gif|mp3|wav|ogg)$/;
+
+/** Public Vercel Blob URL for an upload name, or null if it doesn't exist. */
+export async function resolveBlobUpload(name: string): Promise<string | null> {
+  if (!UPLOAD_NAME.test(name)) return null;
+  try {
+    return (await head(blobPath(name))).url;
+  } catch (err) {
+    if (err instanceof BlobNotFoundError) return null;
+    throw err;
+  }
+}
+
 /** Resolve a public upload name to a safe absolute path, or null. */
 export function resolveUpload(name: string): string | null {
-  if (!/^[A-Za-z0-9_\-]+\.(png|jpe?g|webp|gif|mp3|wav|ogg)$/.test(name)) return null;
+  if (!UPLOAD_NAME.test(name)) return null;
   const full = path.join(uploadsDir(), name);
   return path.dirname(full) === uploadsDir() ? full : null;
 }

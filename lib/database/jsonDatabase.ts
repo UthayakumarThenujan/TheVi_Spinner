@@ -19,7 +19,7 @@ import { logger } from "@/lib/utils/logger";
 
 export type CollectionName = "users" | "spinners" | "offers" | "spin_results" | "admin" | "settings";
 
-const DEFAULTS: Record<CollectionName, unknown> = {
+export const COLLECTION_DEFAULTS: Record<CollectionName, unknown> = {
   users: [],
   spinners: [],
   offers: [],
@@ -51,7 +51,7 @@ async function ensureFile(name: CollectionName): Promise<void> {
   if (await exists(file)) return;
   await fs.mkdir(getDataDir(), { recursive: true });
   const seedFile = path.join(process.cwd(), "data", "seed", `${name}.json`);
-  let initial = JSON.stringify(DEFAULTS[name], null, 2);
+  let initial = JSON.stringify(COLLECTION_DEFAULTS[name], null, 2);
   if (!process.env.DISABLE_SEED && (await exists(seedFile))) {
     initial = await fs.readFile(seedFile, "utf8");
   }

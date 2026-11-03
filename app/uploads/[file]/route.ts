@@ -2,14 +2,22 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { NextResponse } from "next/server";
 import { route } from "@/lib/http";
-import { resolveUpload, MIME_BY_EXT } from "@/lib/services/uploadService";
+import { resolveUpload, resolveBlobUpload, blobConfigured, MIME_BY_EXT } from "@/lib/services/uploadService";
 import { notFound } from "@/lib/utils/errors";
 
 export const dynamic = "force-dynamic";
 
-/** GET /uploads/:file — serves uploaded images/sounds from DATA_DIR/uploads. */
+/** GET /uploads/:file — serves uploaded images/sounds from DATA_DIR/uploads (or redirects to Vercel Blob). */
 export const GET = route<{ file: string }>(async (_req, { params }) => {
   const { file } = await params;
+  if (blobConfigured()) {
+    const url = await resolveBlobUpload(file);
+    if (!url) throw notFound("File");
+    return NextResponse.redirect(url, {
+      status: 308,
+      headers: { "Cache-Control": "public, max-age=31536000, immutable" },
+    });
+  }
   const full = resolveUpload(file);
   if (!full) throw notFound("File");
   let data: Buffer;
